@@ -606,6 +606,7 @@
         "FIELD_HEADER_ENABLE_TOUCH"               : "Enable multi-touch:",
         "FIELD_HEADER_ENABLE_WALLPAPER"           : "Enable wallpaper:",
         "FIELD_HEADER_FORCE_LOSSLESS"             : "Force lossless compression:",
+        "FIELD_HEADER_VIDEO_CODEC"             : "Video streaming (H.264):",
         "FIELD_HEADER_GATEWAY_DOMAIN"   : "Domain:",
         "FIELD_HEADER_GATEWAY_HOSTNAME" : "Hostname:",
         "FIELD_HEADER_GATEWAY_PASSWORD" : "Password:",
@@ -674,6 +675,8 @@
 
         "FIELD_OPTION_RESIZE_METHOD_DISPLAY_UPDATE" : "\"Display Update\" virtual channel (RDP 8.1+)",
         "FIELD_OPTION_RESIZE_METHOD_EMPTY"          : "",
+        "FIELD_OPTION_VIDEO_CODEC_EMPTY" : "Off (images)",
+        "FIELD_OPTION_VIDEO_CODEC_H264"  : "H.264",
         "FIELD_OPTION_RESIZE_METHOD_RECONNECT"      : "Reconnect",
 
         "FIELD_OPTION_SECURITY_ANY"   : "Any",
