@@ -68,6 +68,11 @@ COPY guacamole-docker/environment/ /opt/guacamole/environment/
 # Copy source to container for sake of build
 COPY . "$BUILD_DIR"
 
+# npm, run as root, drops child processes (npx jsdoc, the frontend build) to the uid owning their
+# working directory; when the context arrives with non-root ownership (Arcane's builder) they can't
+# write to Maven's root-owned target/ and the build fails with EACCES. Make it root-owned.
+RUN chown -R root:root "$BUILD_DIR"
+
 # Run the build itself
 RUN /opt/guacamole/bin/build-guacamole.sh "$BUILD_DIR" /opt/guacamole
 
