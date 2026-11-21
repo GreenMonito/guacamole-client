@@ -540,7 +540,8 @@
 
         "FIELD_OPTION_RESIZE_METHOD_DISPLAY_UPDATE" : "\"Actualizar pantalla\" canal virtual (RDP 8.1+)",
         "FIELD_OPTION_RESIZE_METHOD_EMPTY"          : "",
-        "FIELD_OPTION_VIDEO_CODEC_EMPTY" : "No (imágenes)",
+        "FIELD_OPTION_VIDEO_CODEC_EMPTY" : "Por defecto del servidor",
+        "FIELD_OPTION_VIDEO_CODEC_NONE"  : "No (imágenes)",
         "FIELD_OPTION_VIDEO_CODEC_H264"  : "H.264",
         "FIELD_OPTION_RESIZE_METHOD_RECONNECT"      : "Reconectar",
 
