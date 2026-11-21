@@ -105,9 +105,13 @@ Guacamole.VideoPlayer.getInstance = function getInstance(stream, layer, mimetype
  * Implementation of Guacamole.VideoPlayer which decodes H.264 with the
  * browser's WebCodecs API and draws each decoded frame directly onto the
  * canvas of the given layer. The stream carries H.264 access units in Annex B
- * format, each prefixed by a 9-byte header: the length of the access unit
- * (uint32, big endian), flags (bit 0 set for keyframes) and a timestamp in
- * milliseconds (uint32, big endian). This is the format guacd uses when a
+ * format, each prefixed by a header: the length of the access unit (uint32,
+ * big endian), flags (bit 0 set for keyframes), a timestamp in milliseconds
+ * (uint32, big endian), the number of regions of the frame that changed
+ * (uint16) and each of those regions (x, y, width, height as big-endian
+ * uint16). Only those regions are drawn, so whatever guacd later resends
+ * losslessly as images (static text, icons) is not overwritten by lossy
+ * video. This is the format guacd uses when a
  * connection streams its display as video ("video-codec" parameter).
  *
  * @constructor
@@ -130,7 +134,17 @@ Guacamole.H264VideoPlayer = function H264VideoPlayer(stream, layer) {
      * @constant
      * @type {!number}
      */
-    var HEADER_SIZE = 9;
+    var HEADER_SIZE = 11;
+
+    /**
+     * The changed regions of each access unit given to the decoder and not
+     * yet output, by timestamp (microseconds). Each region is an array of x,
+     * y, width and height.
+     *
+     * @private
+     * @type {!Map.<number, number[][]>}
+     */
+    var regions = new Map();
 
     /**
      * Received bytes that do not yet form a complete access unit.
@@ -240,9 +254,26 @@ Guacamole.H264VideoPlayer = function H264VideoPlayer(stream, layer) {
         decoder = new VideoDecoder({
 
             output: function frameDecoded(frame) {
-                if (!ended)
-                    context.drawImage(frame, 0, 0);
+
+                var changed = regions.get(frame.timestamp);
+                regions.delete(frame.timestamp);
+
+                if (!ended) {
+                    if (changed) {
+                        for (var i = 0; i < changed.length; i++) {
+                            var region = changed[i];
+                            if (region[2] > 0 && region[3] > 0)
+                                context.drawImage(frame,
+                                        region[0], region[1], region[2], region[3],
+                                        region[0], region[1], region[2], region[3]);
+                        }
+                    }
+                    else
+                        context.drawImage(frame, 0, 0);
+                }
+
                 frame.close();
+
             },
 
             error: function decodeFailed(e) {
@@ -274,18 +305,25 @@ Guacamole.H264VideoPlayer = function H264VideoPlayer(stream, layer) {
      *
      * @param {!number} timestamp
      *     The timestamp of the access unit, in milliseconds.
+     *
+     * @param {!number[][]} changed
+     *     The regions of the frame that changed, each as x, y, width and
+     *     height.
      */
-    var decode = function decode(data, key, timestamp) {
+    var decode = function decode(data, key, timestamp, changed) {
 
         // A decoder can only start (or recover) at a keyframe, and a new
         // keyframe may carry a different SPS (resolution, level)
         if (key) {
             closeDecoder();
+            regions.clear();
             if (!openDecoder(data))
                 return;
         }
         else if (!decoder || decoder.state !== 'configured')
             return;
+
+        regions.set(timestamp * 1000, changed);
 
         try {
             decoder.decode(new EncodedVideoChunk({
@@ -329,15 +367,29 @@ Guacamole.H264VideoPlayer = function H264VideoPlayer(stream, layer) {
             var size = ((buffer[offset] << 24) >>> 0) + (buffer[offset + 1] << 16)
                      + (buffer[offset + 2] << 8) + buffer[offset + 3];
 
-            if (length - offset < HEADER_SIZE + size)
+            var count = (buffer[offset + 9] << 8) + buffer[offset + 10];
+            var header = HEADER_SIZE + count * 8;
+
+            if (length - offset < header + size)
                 break;
 
             var key = (buffer[offset + 4] & 0x01) !== 0;
             var timestamp = ((buffer[offset + 5] << 24) >>> 0) + (buffer[offset + 6] << 16)
                           + (buffer[offset + 7] << 8) + buffer[offset + 8];
 
-            var start = offset + HEADER_SIZE;
-            decode(buffer.slice(start, start + size), key, timestamp);
+            var changed = [];
+            for (var r = 0; r < count; r++) {
+                var base = offset + HEADER_SIZE + r * 8;
+                changed.push([
+                    (buffer[base    ] << 8) + buffer[base + 1],
+                    (buffer[base + 2] << 8) + buffer[base + 3],
+                    (buffer[base + 4] << 8) + buffer[base + 5],
+                    (buffer[base + 6] << 8) + buffer[base + 7]
+                ]);
+            }
+
+            var start = offset + header;
+            decode(buffer.slice(start, start + size), key, timestamp, changed);
 
             offset = start + size;
 
